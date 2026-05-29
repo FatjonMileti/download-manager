@@ -55,6 +55,13 @@
   .card progress::-webkit-progress-value { background: #e94560; border-radius: 3px; transition: width 0.2s; }
   .card progress.completed::-webkit-progress-value { background: #22c55e; }
   .card progress.failed::-webkit-progress-value { background: #ef4444; }
+  .card-actions { margin-top: 8px; display: flex; gap: 6px; }
+  .card-actions button {
+    padding: 5px 14px; font-size: 12px; font-weight: 600; border: none; border-radius: 4px;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .btn-play { background: #1db954; color: #fff; }
+  .btn-play:hover { background: #169c46; }
 </style>
 </head>
 <body>
@@ -99,17 +106,20 @@
       const progress = document.createElement('progress');
       progress.max = 100;
       progress.value = 0;
+      const actions = document.createElement('div');
+      actions.className = 'card-actions';
       div.appendChild(title);
       div.appendChild(status);
       div.appendChild(progress);
-      el = { div, title, status, progress };
+      div.appendChild(actions);
+      el = { div, title, status, progress, actions };
       cards.set(id, el);
     }
     return el;
   }
 
   function updateCard(data) {
-    const { id, fileName, title, status, percent, error, isPlaylist, currentVideo, totalVideos } = data;
+    const { id, fileName, title, status, percent, error, isPlaylist, currentVideo, totalVideos, filePath } = data;
     const el = getCardEl(id);
     el.title.textContent = fileName || title || `Download #${id}`;
     if (status === 'starting') {
@@ -134,6 +144,19 @@
       status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : ''
     );
     if (percent != null) el.progress.value = percent;
+
+    el.actions.innerHTML = '';
+    if (status === 'completed' && filePath && !isPlaylist) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-play';
+      btn.textContent = '\u25B6 Play in VLC';
+      btn.addEventListener('click', () => {
+        window.electronAPI.playInVlc(filePath).then((res) => {
+          if (res && res.error) el.status.textContent = 'Play failed: ' + res.error;
+        });
+      });
+      el.actions.appendChild(btn);
+    }
   }
 
   function startDownload(url) {

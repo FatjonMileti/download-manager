@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('download-progress', listener);
     return () => ipcRenderer.removeListener('download-progress', listener);
   },
+  playInVlc: (filePath) => ipcRenderer.invoke('open-with-vlc', filePath),
 });

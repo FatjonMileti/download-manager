@@ -48,6 +48,21 @@ if (ffmpegPath) {
 
 const ytdlpPath = findYtdlp();
 
+function findVlc() {
+  const { execSync } = require('child_process');
+  try {
+    const result = execSync('which vlc', { encoding: 'utf8' });
+    return result.trim();
+  } catch {}
+  const commonPaths = ['/usr/bin/vlc', '/snap/bin/vlc', '/usr/local/bin/vlc'];
+  for (const p of commonPaths) {
+    if (fs.existsSync(p)) return p;
+  }
+  return null;
+}
+
+const vlcPath = findVlc();
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 960,
@@ -119,7 +134,7 @@ async function getYtdlpOutput(args) {
   });
 }
 
-function runYtdlpDownload(id, args, isPlaylist) {
+function runYtdlpDownload(id, args, isPlaylist, filePath) {
   const proc = spawnYtdlp(args);
   let lastPercent = 0;
   let currentVideo = 0;
@@ -168,7 +183,9 @@ function runYtdlpDownload(id, args, isPlaylist) {
 
   proc.on('close', (code) => {
     if (code === 0) {
-      sendProgress({ id, percent: 100, status: 'completed' });
+      const data = { id, percent: 100, status: 'completed' };
+      if (filePath) data.filePath = filePath;
+      sendProgress(data);
     } else {
       const errMsg = errorOutput
         .split('\n')
@@ -194,7 +211,7 @@ async function handleYouTubeSingle(id, url, folder) {
       '--newline', '--no-warnings',
       '--ignore-errors',
       '-o', outputPath, url,
-    ], false);
+    ], false, outputPath);
   } catch (err) {
     sendProgress({ id, status: 'failed', error: err.message });
   }
@@ -251,7 +268,7 @@ function handleDirectDownload(id, url) {
 
     item.on('done', (_event, state) => {
       if (state === 'completed') {
-        sendProgress({ id, percent: 100, status: 'completed' });
+        sendProgress({ id, percent: 100, status: 'completed', filePath: result.filePath });
       } else {
         sendProgress({ id, status: 'failed', error: `Download failed: ${state}` });
       }
@@ -291,4 +308,15 @@ ipcMain.handle('start-download', async (_event, url) => {
   }
 
   return id;
+});
+
+ipcMain.handle('open-with-vlc', async (_event, filePath) => {
+  if (!vlcPath) return { error: 'VLC not found. Install it: sudo apt install vlc' };
+  try {
+    const { spawn } = require('child_process');
+    spawn(vlcPath, [filePath], { detached: true, stdio: 'ignore' }).unref();
+    return { success: true };
+  } catch (err) {
+    return { error: err.message };
+  }
 });
