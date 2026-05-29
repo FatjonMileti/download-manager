@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Download Manager</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+    background: #1a1a2e; color: #e0e0e0; height: 100vh; overflow: hidden;
+  }
+  #app { display: flex; flex-direction: column; height: 100vh; }
+
+  header {
+    background: #16213e; padding: 20px 24px 16px; border-bottom: 1px solid #0f3460;
+  }
+  header h1 { font-size: 22px; font-weight: 600; margin-bottom: 14px; color: #e94560; letter-spacing: 0.5px; }
+  .input-row { display: flex; gap: 10px; }
+  .input-row input {
+    flex: 1; padding: 10px 14px; font-size: 14px; border: 1px solid #0f3460; border-radius: 6px;
+    background: #1a1a2e; color: #e0e0e0; outline: none; transition: border-color 0.2s;
+  }
+  .input-row input:focus { border-color: #e94560; }
+  .input-row input::placeholder { color: #6b7280; }
+  .input-row button {
+    padding: 10px 24px; font-size: 14px; font-weight: 600; border: none; border-radius: 6px;
+    background: #e94560; color: #fff; cursor: pointer; transition: background 0.2s;
+  }
+  .input-row button:hover { background: #d63851; }
+  .input-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  main { flex: 1; overflow-y: auto; padding: 16px 24px; }
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 60%; color: #4a4a6a; text-align: center;
+  }
+  .empty-state svg { width: 64px; height: 64px; margin-bottom: 16px; opacity: 0.4; }
+  .empty-state p { font-size: 15px; }
+
+  .card {
+    background: #16213e; border: 1px solid #0f3460; border-radius: 8px; padding: 14px 18px;
+    margin-bottom: 10px; animation: slideIn 0.25s ease-out;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+  .card-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-status { font-size: 12px; color: #9ca3af; margin-bottom: 8px; }
+  .card-status.failed { color: #ef4444; }
+  .card-status.completed { color: #22c55e; }
+  .card progress {
+    width: 100%; height: 6px; border-radius: 3px; overflow: hidden;
+    -webkit-appearance: none; appearance: none;
+  }
+  .card progress::-webkit-progress-bar { background: #1a1a2e; border-radius: 3px; }
+  .card progress::-webkit-progress-value { background: #e94560; border-radius: 3px; transition: width 0.2s; }
+  .card progress.completed::-webkit-progress-value { background: #22c55e; }
+  .card progress.failed::-webkit-progress-value { background: #ef4444; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Download Manager</h1>
+    <div class="input-row">
+      <input type="text" id="urlInput" placeholder="Paste a direct file URL or YouTube link..." spellcheck="false">
+      <button id="downloadBtn">Download</button>
+    </div>
+  </header>
+  <main id="dashboard">
+    <div class="empty-state" id="emptyState">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M12 3v12m0 0-3-3m3 3 3-3M5 16v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/>
+      </svg>
+      <p>Enter a URL above to start downloading</p>
+    </div>
+  </main>
+</div>
+
+<script>
+  const urlInput = document.getElementById('urlInput');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const dashboard = document.getElementById('dashboard');
+  const emptyState = document.getElementById('emptyState');
+
+  const cards = new Map();
+
+  function getCardEl(id) {
+    let el = cards.get(id);
+    if (!el) {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.dataset.id = id;
+      emptyState.style.display = 'none';
+      dashboard.insertBefore(div, dashboard.firstChild);
+      const title = document.createElement('div');
+      title.className = 'card-title';
+      const status = document.createElement('div');
+      status.className = 'card-status';
+      const progress = document.createElement('progress');
+      progress.max = 100;
+      progress.value = 0;
+      div.appendChild(title);
+      div.appendChild(status);
+      div.appendChild(progress);
+      el = { div, title, status, progress };
+      cards.set(id, el);
+    }
+    return el;
+  }
+
+  function updateCard(data) {
+    const { id, fileName, title, status, percent, error, isPlaylist, currentVideo, totalVideos } = data;
+    const el = getCardEl(id);
+    el.title.textContent = fileName || title || `Download #${id}`;
+    if (status === 'starting') {
+      el.status.textContent = isPlaylist ? 'Preparing playlist...' : 'Starting...';
+    } else if (status === 'downloading' && percent != null) {
+      if (isPlaylist && totalVideos > 0) {
+        el.status.textContent = `Video ${currentVideo} of ${totalVideos} — ${percent}%`;
+      } else {
+        el.status.textContent = `Downloading: ${percent}%`;
+      }
+    } else if (status === 'completed') {
+      el.status.textContent = isPlaylist ? 'Playlist downloaded' : 'Completed';
+    } else if (status === 'failed') {
+      el.status.textContent = `Failed: ${error || 'Unknown error'}`;
+    } else {
+      el.status.textContent = status;
+    }
+    el.status.className = 'card-status' + (
+      status === 'completed' ? ' completed' : status === 'failed' ? ' failed' : ''
+    );
+    el.progress.className = (
+      status === 'completed' ? 'completed' : status === 'failed' ? 'failed' : ''
+    );
+    if (percent != null) el.progress.value = percent;
+  }
+
+  function startDownload(url) {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    downloadBtn.disabled = true;
+
+    window.electronAPI.startDownload(trimmed)
+      .then(() => { urlInput.value = ''; })
+      .catch((err) => {
+        const fallbackId = Date.now();
+        updateCard({ id: fallbackId, fileName: 'Error', status: 'failed', error: err.message });
+      })
+      .finally(() => { downloadBtn.disabled = false; });
+  }
+
+  downloadBtn.addEventListener('click', () => startDownload(urlInput.value));
+  urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') startDownload(urlInput.value); });
+
+  window.electronAPI.onDownloadProgress(updateCard);
+</script>
+</body>
+</html>
