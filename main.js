@@ -320,3 +320,16 @@ ipcMain.handle('open-with-vlc', async (_event, filePath) => {
     return { error: err.message };
   }
 });
+
+ipcMain.handle('pick-video-file', async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: 'Open video with VLC',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Video files', extensions: ['mp4', 'mkv', 'avi', 'webm', 'mov', 'wmv', 'flv', 'm4v', 'mpg', 'mpeg'] },
+      { name: 'All files', extensions: ['*'] },
+    ],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
+});

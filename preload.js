@@ -8,4 +8,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('download-progress', listener);
   },
   playInVlc: (filePath) => ipcRenderer.invoke('open-with-vlc', filePath),
+  pickVideoFile: () => ipcRenderer.invoke('pick-video-file'),
 });

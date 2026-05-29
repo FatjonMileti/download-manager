@@ -62,6 +62,8 @@
   }
   .btn-play { background: #1db954; color: #fff; }
   .btn-play:hover { background: #169c46; }
+  .btn-open { background: #f59e0b; color: #fff; }
+  .btn-open:hover { background: #d97706; }
 </style>
 </head>
 <body>
@@ -71,6 +73,7 @@
     <div class="input-row">
       <input type="text" id="urlInput" placeholder="Paste a direct file URL or YouTube link..." spellcheck="false">
       <button id="downloadBtn">Download</button>
+      <button id="openBtn" class="btn-open">Open in VLC</button>
     </div>
   </header>
   <main id="dashboard">
@@ -175,6 +178,14 @@
 
   downloadBtn.addEventListener('click', () => startDownload(urlInput.value));
   urlInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') startDownload(urlInput.value); });
+
+  document.getElementById('openBtn').addEventListener('click', async () => {
+    const path = await window.electronAPI.pickVideoFile();
+    if (path) {
+      const res = await window.electronAPI.playInVlc(path);
+      if (res && res.error) alert('Failed to open VLC: ' + res.error);
+    }
+  });
 
   window.electronAPI.onDownloadProgress(updateCard);
 </script>
